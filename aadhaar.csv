@@ -1,0 +1,22 @@
+State,District,Month,Year,Enrollments,Updates
+Uttar Pradesh,Lucknow,Jan,2024,120000,45000
+Uttar Pradesh,Lucknow,Feb,2024,130000,47000
+Uttar Pradesh,Lucknow,Mar,2024,140000,52000
+Uttar Pradesh,Varanasi,Jan,2024,90000,30000
+Uttar Pradesh,Varanasi,Feb,2024,95000,32000
+Uttar Pradesh,Varanasi,Mar,2024,100000,35000
+Maharashtra,Pune,Jan,2024,110000,52000
+Maharashtra,Pune,Feb,2024,108000,50000
+Maharashtra,Pune,Mar,2024,115000,56000
+Maharashtra,Mumbai,Jan,2024,150000,70000
+Maharashtra,Mumbai,Feb,2024,155000,72000
+Maharashtra,Mumbai,Mar,2024,160000,75000
+Bihar,Patna,Jan,2024,90000,30000
+Bihar,Patna,Feb,2024,40000,28000
+Bihar,Patna,Mar,2024,95000,33000
+Rajasthan,Jaipur,Jan,2024,85000,29000
+Rajasthan,Jaipur,Feb,2024,88000,31000
+Rajasthan,Jaipur,Mar,2024,90000,34000
+Tamil Nadu,Chennai,Jan,2024,100000,48000
+Tamil Nadu,Chennai,Feb,2024,102000,50000
+Tamil Nadu,Chennai,Mar,2024,105000,53000
