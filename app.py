@@ -4,8 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import plotly.express as px
 from sklearn.linear_model import LinearRegression
-from reportlab.platypus import SimpleDocTemplate, Paragraph
-from reportlab.lib.styles import getSampleStyleSheet
+
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(page_title="Aadhaar Analytics", layout="wide")
@@ -145,37 +144,6 @@ with tab5:
 
     st.info("📌 High intensity states require priority resource allocation.")
 
-# ---------------- PDF REPORT GENERATOR ----------------
-def generate_pdf():
-    file_name = "Aadhaar_Policy_Report.pdf"
-    doc = SimpleDocTemplate(file_name)
-    styles = getSampleStyleSheet()
-    content = []
-
-    content.append(Paragraph("<b>Aadhaar Analytics Policy Report</b>", styles["Title"]))
-    content.append(Paragraph(
-        f"""
-        State Analyzed: {state}<br/><br/>
-        Key Insights:
-        <ul>
-        <li>Predictive demand reduces congestion</li>
-        <li>Anomaly detection prevents service failures</li>
-        <li>Risk scoring enables proactive decisions</li>
-        </ul>
-        """,
-        styles["Normal"]
-    ))
-
-    doc.build(content)
-    return file_name
-
-st.markdown("---")
-st.subheader("📄 Policy Report")
-
-if st.button("Generate Policy PDF"):
-    pdf = generate_pdf()
-    with open(pdf, "rb") as f:
-        st.download_button("⬇️ Download Report", f, file_name=pdf)
 
 # ---------------- FINAL RECOMMENDATIONS ----------------
 st.markdown("---")
