@@ -1,189 +1,141 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import plotly.express as px
-from sklearn.linear_model import LinearRegression
-from reportlab.platypus import SimpleDocTemplate, Paragraph
-from reportlab.lib.styles import getSampleStyleSheet
+import plotly.graph_objects as go
+from sklearn.ensemble import IsolationForest
+from sklearn.preprocessing import StandardScaler
+from prophet import Prophet
 
-# ---------------- PAGE CONFIG ----------------
-st.set_page_config(page_title="Aadhaar Analytics", layout="wide")
+# --- PAGE CONFIGURATION ---
+st.set_page_config(page_title="UIDAI Sentinel", page_icon="🇮🇳", layout="wide")
 
-# ---------------- LANGUAGE TOGGLE ----------------
-language = st.sidebar.radio("🌐 Language", ["English", "हिंदी"])
+# --- CSS STYLING (To make it look like a Govt Portal) ---
+st.markdown("""
+    <style>
+    .main { background-color: #f5f7f9; }
+    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); }
+    h1, h2, h3 { color: #2c3e50; }
+    </style>
+    """, unsafe_allow_html=True)
 
-TEXT = {
-    "title": {
-        "English": "Aadhaar Enrolment & Update Intelligence System",
-        "हिंदी": "आधार नामांकन और अद्यतन विश्लेषण प्रणाली"
-    }
-}
-
-# ---------------- LOAD DATA ----------------
+# --- HELPER: GENERATE DUMMY DATA (If no CSV provided) ---
 @st.cache_data
 def load_data():
-    return pd.read_csv("data/aadhaar.csv")
+    # Simulate 365 days of data across 3 districts
+    dates = pd.date_range(start='2024-01-01', periods=365)
+    data = []
+    
+    # District A: Normal operations
+    for d in dates:
+        data.append(['District_A', d, np.random.randint(50, 150)])
+        
+    # District B: Has a massive fraud spike in May
+    for d in dates:
+        count = np.random.randint(40, 120)
+        if d.month == 5 and d.day > 10 and d.day < 20: 
+            count = np.random.randint(600, 800) # ANOMALY
+        data.append(['District_B', d, count])
+        
+    df = pd.DataFrame(data, columns=['District', 'Date', 'Count'])
+    df['Date'] = pd.to_datetime(df['Date'])
+    return df
 
+# Load data
 df = load_data()
 
-# ---------------- SIDEBAR ----------------
-st.sidebar.title("📊 Aadhaar Analytics")
-state = st.sidebar.selectbox("Select State", df["State"].unique())
+# --- SIDEBAR NAVIGATION ---
+st.sidebar.title("UIDAI Analytics")
+st.sidebar.image("https://upload.wikimedia.org/wikipedia/en/c/cf/Aadhaar_Logo.svg", width=150)
+page = st.sidebar.radio("Go to", ["Dashboard Overview", "Anomaly Detection", "Resource Planner"])
 
-filtered = df[df["State"] == state]
-
-# ---------------- TITLE ----------------
-st.title(TEXT["title"][language])
-
-# ---------------- TABS ----------------
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📈 Trends",
-    "🧠 Societal Insights",
-    "🚨 Anomalies",
-    "🔮 Demand Prediction",
-    "🗺 Heatmap"
-])
-
-# ---------------- TAB 1: TRENDS ----------------
-with tab1:
-    st.subheader("Enrolment & Update Trends")
-
-    trend = filtered.groupby(["Year", "Month"]).sum(numeric_only=True).reset_index()
-
-    fig, ax = plt.subplots()
-    ax.plot(trend.index, trend["Enrollments"], label="Enrollments")
-    ax.plot(trend.index, trend["Updates"], label="Updates")
-    ax.legend()
-    ax.set_xlabel("Time")
-    ax.set_ylabel("Count")
-
-    st.pyplot(fig)
-
-    st.success("📌 Identifies peak demand periods for better planning.")
-
-# ---------------- TAB 2: SOCIETAL INSIGHTS ----------------
-with tab2:
-    st.subheader("District-wise Participation")
-
-    district_data = filtered.groupby("District").sum(numeric_only=True)
-
-    st.bar_chart(district_data[["Enrollments", "Updates"]])
-
-    top_district = district_data["Updates"].idxmax()
-    st.info(
-        f"🧠 {top_district} shows highest Aadhaar update activity — likely due to migration or service demand."
-    )
-
-# ---------------- TAB 3: ANOMALY DETECTION + RISK SCORE ----------------
-with tab3:
-    st.subheader("Anomaly Detection")
-
-    filtered = filtered.copy()
-    filtered["Z_score"] = (
-        filtered["Enrollments"] - filtered["Enrollments"].mean()
-    ) / filtered["Enrollments"].std()
-
-    anomalies = filtered[np.abs(filtered["Z_score"]) > 2]
-
-    if not anomalies.empty:
-        st.warning("🚨 Anomalies Detected")
-        st.dataframe(anomalies)
-    else:
-        st.success("✅ No major anomalies detected.")
-
-    st.markdown("### ⚠️ Center Overload Risk Score")
-
-    filtered["RiskScore"] = (
-        (filtered["Updates"] / filtered["Updates"].max()) * 0.6 +
-        (np.abs(filtered["Z_score"]) / filtered["Z_score"].abs().max()) * 0.4
-    )
-
-    high_risk = filtered[filtered["RiskScore"] > 0.7]
-
-    if not high_risk.empty:
-        st.error("🚨 High Risk Districts")
-        st.dataframe(high_risk[["District", "RiskScore"]])
-    else:
-        st.success("✅ No critical overload risks.")
-
-# ---------------- TAB 4: DEMAND PREDICTION ----------------
-with tab4:
-    st.subheader("Future Aadhaar Update Demand")
-
-    filtered["TimeIndex"] = range(len(filtered))
-
-    X = filtered[["TimeIndex"]]
-    y = filtered["Updates"]
-
-    model = LinearRegression()
-    model.fit(X, y)
-
-    future_index = np.array([[len(filtered) + i] for i in range(3)])
-    predictions = model.predict(future_index)
-
-    for i, val in enumerate(predictions, 1):
-        st.write(f"🔮 Month {i}: {int(val)} predicted updates")
-
-    st.success("📌 Enables proactive staffing & infrastructure planning.")
-
-# ---------------- TAB 5: STATE-WISE HEATMAP ----------------
-with tab5:
-    st.subheader("State-wise Aadhaar Activity Heatmap")
-
-    state_data = df.groupby("State")[["Enrollments", "Updates"]].sum().reset_index()
-
-    fig = px.density_heatmap(
-        state_data,
-        x="State",
-        y="Updates",
-        color_continuous_scale="Viridis",
-        title="Aadhaar Update Intensity by State"
-    )
-
+# --- PAGE 1: OVERVIEW ---
+if page == "Dashboard Overview":
+    st.title("🇮🇳 AadhaarPulse: Strategic Insights Dashboard")
+    st.markdown("### Real-time monitoring of Enrolment & Update Trends")
+    
+    # Top Level Metrics
+    col1, col2, col3 = st.columns(3)
+    total_enrolments = df['Count'].sum()
+    avg_daily = int(df['Count'].mean())
+    
+    col1.metric("Total Transactions (YTD)", f"{total_enrolments:,}")
+    col2.metric("Avg Daily Footfall", f"{avg_daily}")
+    col3.metric("Districts Monitored", df['District'].nunique())
+    
+    # Simple Time Series Plot
+    st.subheader("National Trend Overview")
+    fig = px.line(df.groupby('Date')['Count'].sum().reset_index(), x='Date', y='Count', title="Total Daily Transactions")
     st.plotly_chart(fig, use_container_width=True)
 
-    st.info("📌 High intensity states require priority resource allocation.")
+# --- PAGE 2: ANOMALY DETECTION ---
+elif page == "Anomaly Detection":
+    st.title("🚨 Fraud & Anomaly Scout")
+    st.info("Detects unusual spikes in Aadhaar updates using Isolation Forest Algorithm.")
+    
+    # User inputs
+    selected_district = st.selectbox("Select District to Analyze", df['District'].unique())
+    contamination = st.slider("Sensitivity (Contamination Level)", 0.01, 0.1, 0.05)
+    
+    # Filter Data
+    d_df = df[df['District'] == selected_district].copy()
+    
+    # Run Model
+    model = IsolationForest(contamination=contamination, random_state=42)
+    d_df['Anomaly'] = model.fit_predict(d_df[['Count']])
+    d_df['Type'] = d_df['Anomaly'].map({1: 'Normal', -1: 'Critical Anomaly'})
+    
+    # Visualization
+    fig = px.scatter(d_df, x='Date', y='Count', color='Type', 
+                     color_discrete_map={'Normal': 'blue', 'Critical Anomaly': 'red'},
+                     title=f"Anomaly Detection for {selected_district}",
+                     size='Count', hover_data=['Count'])
+    
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Data Table for Anomalies
+    anomalies = d_df[d_df['Type'] == 'Critical Anomaly']
+    if not anomalies.empty:
+        st.error(f"⚠️ Found {len(anomalies)} suspicious events in {selected_district}!")
+        st.dataframe(anomalies[['Date', 'Count']].style.format({"Date": lambda t: t.strftime("%Y-%m-%d")}))
+    else:
+        st.success("No anomalies detected in this timeframe.")
 
-# ---------------- PDF REPORT GENERATOR ----------------
-def generate_pdf():
-    file_name = "Aadhaar_Policy_Report.pdf"
-    doc = SimpleDocTemplate(file_name)
-    styles = getSampleStyleSheet()
-    content = []
-
-    content.append(Paragraph("<b>Aadhaar Analytics Policy Report</b>", styles["Title"]))
-    content.append(Paragraph(
-        f"""
-        State Analyzed: {state}<br/><br/>
-        Key Insights:
-        <ul>
-        <li>Predictive demand reduces congestion</li>
-        <li>Anomaly detection prevents service failures</li>
-        <li>Risk scoring enables proactive decisions</li>
-        </ul>
-        """,
-        styles["Normal"]
-    ))
-
-    doc.build(content)
-    return file_name
-
-st.markdown("---")
-st.subheader("📄 Policy Report")
-
-if st.button("Generate Policy PDF"):
-    pdf = generate_pdf()
-    with open(pdf, "rb") as f:
-        st.download_button("⬇️ Download Report", f, file_name=pdf)
-
-# ---------------- FINAL RECOMMENDATIONS ----------------
-st.markdown("---")
-st.subheader("📌 Policy Recommendations")
-
-st.write("""
-• Deploy mobile Aadhaar units in high-risk districts  
-• Increase staffing during predicted peak months  
-• Use anomaly alerts for early intervention  
-• Adopt data-driven governance for better citizen experience  
-""")
+# --- PAGE 3: RESOURCE PLANNER (FORECASTING) ---
+elif page == "Resource Planner":
+    st.title("📅 Future Demand Forecasting")
+    st.markdown("Predicts footfall for the next 30 days to optimize staff allocation.")
+    
+    district = st.selectbox("Select District for Forecasting", df['District'].unique())
+    
+    if st.button("Generate Forecast"):
+        with st.spinner("Training Prophet Model..."):
+            # Prepare data for Prophet
+            p_df = df[df['District'] == district][['Date', 'Count']].rename(columns={'Date': 'ds', 'Count': 'y'})
+            
+            # Train Model
+            m = Prophet(yearly_seasonality=True, weekly_seasonality=True)
+            m.fit(p_df)
+            
+            # Predict
+            future = m.make_future_dataframe(periods=30)
+            forecast = m.predict(future)
+            
+            # Plot
+            st.subheader(f"30-Day Forecast for {district}")
+            
+            # Custom Plotly Chart for Forecast
+            fig = go.Figure()
+            # Historical Data
+            fig.add_trace(go.Scatter(x=p_df['ds'], y=p_df['y'], name='Actual', mode='markers', marker=dict(color='gray', opacity=0.5)))
+            # Forecast Line
+            fig.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat'], name='Prediction', line=dict(color='green')))
+            # Confidence Interval
+            fig.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat_upper'], mode='lines', line=dict(width=0), showlegend=False))
+            fig.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat_lower'], mode='lines', line=dict(width=0), fill='tonexty', fillcolor='rgba(0, 255, 0, 0.1)', name='Confidence Interval'))
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Recommendation Logic
+            peak_day = forecast.iloc[-30:]['yhat'].max()
+            st.success(f"**Insight:** The predicted peak footfall is **{int(peak_day)}** people. Ensure full staffing on that day.")
